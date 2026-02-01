@@ -1,0 +1,8 @@
+# DeathSwap Configuration
+
+game:
+  # Total time for the game in seconds
+  total-time-seconds: 600
+  
+  # Time between swaps in seconds
+  cooldown-seconds: 60
