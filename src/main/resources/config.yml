@@ -6,3 +6,6 @@ game:
   
   # Time between swaps in seconds
   cooldown-seconds: 60
+
+  # Radius for random spawns
+  radius: 5000

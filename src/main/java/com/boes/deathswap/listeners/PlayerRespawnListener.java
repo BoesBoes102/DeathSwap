@@ -12,7 +12,6 @@ public record PlayerRespawnListener(Game game) implements Listener {
         if (!game.isRunning()) return;
         if (game.getGameWorld() == null) return;
 
-        // If the player is part of the game (as spectator or otherwise)
         if (game.isSpectating(event.getPlayer()) || game.getSnapshots().containsKey(event.getPlayer())) {
             event.setRespawnLocation(game.getGameWorld().getSpawnLocation());
         }

@@ -8,9 +8,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 public record Start(DeathSwap plugin, Game game) {
 
@@ -47,14 +45,20 @@ public record Start(DeathSwap plugin, Game game) {
         game.setRunning(true);
 
         final Map<Player, Location> spawnLocations = new HashMap<>();
+        List<Location> potentialSpawns = new ArrayList<>(plugin.getWorldManager().getPotentialSpawns());
         Random random = new Random();
-        int radius = 5000; // Larger radius for more variety
         
         for (Player p : Bukkit.getOnlinePlayers()) {
-            int x = random.nextInt(radius * 2) - radius;
-            int z = random.nextInt(radius * 2) - radius;
-            // Use a temporary Y, will be updated during countdown
-            spawnLocations.put(p, new Location(world, x, 0, z));
+            if (potentialSpawns.isEmpty()) {
+                int radius = plugin.getConfigManager().getRadius();
+                int x = random.nextInt(radius * 2) - radius;
+                int z = random.nextInt(radius * 2) - radius;
+                int y = world.getHighestBlockYAt(x, z) + 1;
+                spawnLocations.put(p, new Location(world, x, y, z));
+            } else {
+                int index = random.nextInt(potentialSpawns.size());
+                spawnLocations.put(p, potentialSpawns.remove(index));
+            }
         }
 
         new BukkitRunnable() {
@@ -63,25 +67,6 @@ public record Start(DeathSwap plugin, Game game) {
             @Override
             public void run() {
                 if (countdown > 0) {
-                    // Pre-generate/load chunks during countdown
-                    for (Location loc : spawnLocations.values()) {
-                        world.getChunkAtAsync(loc).thenAccept(chunk -> {
-                            // Find highest block Y once chunk is loaded
-                            int x = loc.getBlockX();
-                            int z = loc.getBlockZ();
-                            int y = world.getHighestBlockYAt(x, z);
-                            loc.setY(y + 1);
-
-                            // Load neighboring chunks too
-                            for (int dx = -1; dx <= 1; dx++) {
-                                for (int dz = -1; dz <= 1; dz++) {
-                                    if (dx == 0 && dz == 0) continue;
-                                    world.getChunkAtAsync(chunk.getX() + dx, chunk.getZ() + dz);
-                                }
-                            }
-                        });
-                    }
-
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         p.sendTitle("§c" + countdown, "§eStarting DeathSwap...", 5, 20, 5);
                     }
@@ -95,7 +80,7 @@ public record Start(DeathSwap plugin, Game game) {
 
                         Location spawnLoc = spawnLocations.get(p);
                         if (spawnLoc == null) {
-                            // Fallback if player joined late or something
+                            int radius = plugin.getConfigManager().getRadius();
                             int x = random.nextInt(radius * 2) - radius;
                             int z = random.nextInt(radius * 2) - radius;
                             int y = world.getHighestBlockYAt(x, z) + 1;

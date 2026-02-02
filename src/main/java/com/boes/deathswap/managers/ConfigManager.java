@@ -41,6 +41,10 @@ public class ConfigManager {
         return config.getInt("game.cooldown-seconds", 30);
     }
 
+    public int getRadius() {
+        return config.getInt("game.radius", 5000);
+    }
+
     public FileConfiguration getConfig() {
         return config;
     }

@@ -22,8 +22,8 @@ public class Game {
     private final Map<Player, PlayerSnapshot> spectatorSnapshots = new HashMap<>();
     private final Set<Player> spectators = new HashSet<>();
 
-    private int totalTimeSeconds = 300;
-    private int cooldownSeconds = 30;
+    private int totalTimeSeconds = 600;
+    private int cooldownSeconds = 60;
     private BukkitRunnable timerTask;
     private BossBar bossBar;
     
@@ -103,7 +103,6 @@ public class Game {
 
                 tickLeftPlayerTimeouts();
 
-                // Update BossBar players
                 bossBar.removeAll();
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     if (p.getWorld().equals(gameWorld) || spectators.contains(p)) {
@@ -111,7 +110,6 @@ public class Game {
                     }
                 }
 
-                // Update BossBar display
                 bossBar.setTitle(ChatColor.GOLD + "Time remaining: " + ChatColor.WHITE + formatTime(timeRemaining));
                 bossBar.setProgress(Math.max(0.0, Math.min(1.0, (double) timeRemaining / totalTimeSeconds)));
 
@@ -137,7 +135,7 @@ public class Game {
                 }
 
                 if (swapCooldown <= 0) {
-                    doSwap(alive);
+                    executeSwap(alive);
                     swapCooldown = cooldownSeconds;
                 } else {
                     swapCooldown--;
@@ -163,7 +161,7 @@ public class Game {
         }
     }
 
-    public void doSwap(List<Player> alivePlayers) {
+    public void executeSwap(List<Player> alivePlayers) {
         if (alivePlayers.size() < 2) return;
 
         Map<Player, Location> swapData = new HashMap<>();
@@ -223,7 +221,7 @@ public class Game {
             public void run() {
                 new Stop(plugin, Game.this).stop();
             }
-        }.runTaskLater(plugin, 40L); // 2 second delay
+        }.runTaskLater(plugin, 40L);
     }
 
 
@@ -305,7 +303,6 @@ public class Game {
             LeftPlayerData data = leftPlayers.remove(player);
             if (player.isOnline()) {
                 data.snapshot.restore();
-                player.sendMessage(ChatColor.RED + "You were automatically restored due to inactivity timeout.");
             }
         }
     }
@@ -343,8 +340,7 @@ public class Game {
         public void restore() {
             player.getInventory().setContents(contents);
             player.getInventory().setArmorContents(armor);
-            
-            // Ensure chunk is loaded before restoring
+
             if (location.getWorld() != null) {
                 location.getChunk().load();
             }

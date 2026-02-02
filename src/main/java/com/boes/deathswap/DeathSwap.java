@@ -45,7 +45,7 @@ public class DeathSwap extends JavaPlugin {
 
         worldManager.ensurePregeneratedWorld();
 
-        getLogger().info("DeathSwap plugin enabled.");
+        getLogger().info("DeathSwap enabled.");
     }
 
     @Override
@@ -53,7 +53,10 @@ public class DeathSwap extends JavaPlugin {
         if (game != null && game.isRunning()) {
             gameStopper.stop();
         }
-        getLogger().info("DeathSwap plugin disabled.");
+        if (worldManager != null) {
+            worldManager.unforceAllChunks();
+        }
+        getLogger().info("DeathSwap disabled.");
     }
 
     public Game getGame() {

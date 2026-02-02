@@ -16,7 +16,6 @@ public record Stop(DeathSwap plugin, Game game) {
         if (gameWorld == null) return true;
 
         for (Player p : Bukkit.getOnlinePlayers()) {
-            // Ensure they are alive so teleport works
             if (p.isDead()) {
                 p.spigot().respawn();
             }
@@ -30,7 +29,6 @@ public record Stop(DeathSwap plugin, Game game) {
                 snapshot.restore();
             }
 
-            // Fallback for players still in the game world
             if (p.getWorld().equals(gameWorld)) {
                 p.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
                 if (p.getGameMode() == GameMode.SPECTATOR) {
