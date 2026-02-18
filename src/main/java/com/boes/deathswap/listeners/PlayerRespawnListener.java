@@ -12,7 +12,7 @@ public record PlayerRespawnListener(Game game) implements Listener {
         if (!game.isRunning()) return;
         if (game.getGameWorld() == null) return;
 
-        if (game.isSpectating(event.getPlayer()) || game.getSnapshots().containsKey(event.getPlayer())) {
+        if (game.isSpectating(event.getPlayer()) || game.getParticipatingPlayers().contains(event.getPlayer().getUniqueId())) {
             event.setRespawnLocation(game.getGameWorld().getSpawnLocation());
         }
     }

@@ -5,7 +5,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.Location;
-import org.bukkit.Chunk;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
@@ -19,38 +18,90 @@ public class WorldManager {
     private String currentWorldName = null;
     private final List<Location> potentialSpawns = new ArrayList<>();
     private static final int PRELOAD_COUNT = 20;
+    private boolean isLoadingSpawns = false;
 
     public WorldManager(DeathSwap plugin) {
         this.plugin = plugin;
     }
 
     public void ensurePregeneratedWorld() {
-        cleanupOldWorlds();
-        if (currentWorldName == null) {
-            generatePregeneratedWorld();
-        } else {
-            loadPotentialSpawns();
-        }
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                File container = Bukkit.getWorldContainer();
+                File[] files = container.listFiles();
+                File newestWorld = null;
+                long lastModified = 0;
+
+                if (files != null) {
+                    for (File file : files) {
+                        if (file.isDirectory() && file.getName().startsWith(WORLD_PREFIX)) {
+                            if (file.lastModified() > lastModified) {
+                                lastModified = file.lastModified();
+                                newestWorld = file;
+                            }
+                        }
+                    }
+                }
+
+                final String foundWorldName = (newestWorld != null) ? newestWorld.getName() : null;
+
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (foundWorldName != null) {
+                            currentWorldName = foundWorldName;
+                            plugin.getLogger().info("Found existing world: " + currentWorldName);
+                            Bukkit.createWorld(new WorldCreator(currentWorldName));
+                            loadPotentialSpawns();
+                        } else {
+                            generatePregeneratedWorld();
+                        }
+                        cleanupOldWorlds();
+                    }
+                }.runTask(plugin);
+            }
+        }.runTaskAsynchronously(plugin);
     }
 
     public void cleanupOldWorlds() {
-        File container = Bukkit.getWorldContainer();
-        File[] files = container.listFiles();
-        if (files == null) return;
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                File container = Bukkit.getWorldContainer();
+                File[] files = container.listFiles();
+                if (files == null) return;
 
-        for (File file : files) {
-            if (file.isDirectory() && file.getName().startsWith(WORLD_PREFIX)) {
-                if (currentWorldName != null && file.getName().equals(currentWorldName)) continue;
+                for (File file : files) {
+                    if (file.isDirectory() && file.getName().startsWith(WORLD_PREFIX)) {
+                        if (file.getName().equals(currentWorldName)) continue;
 
-                World world = Bukkit.getWorld(file.getName());
-                if (world != null) {
-                    Bukkit.unloadWorld(world, false);
+                        final String nameToDelete = file.getName();
+
+                        new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                World world = Bukkit.getWorld(nameToDelete);
+                                if (world != null) {
+                                    Bukkit.unloadWorld(world, false);
+                                }
+
+                                new BukkitRunnable() {
+                                    @Override
+                                    public void run() {
+                                        File worldDir = new File(Bukkit.getWorldContainer(), nameToDelete);
+                                        if (worldDir.exists()) {
+                                            deleteRecursive(worldDir);
+                                            plugin.getLogger().info("Cleaned up old world: " + nameToDelete);
+                                        }
+                                    }
+                                }.runTaskAsynchronously(plugin);
+                            }
+                        }.runTask(plugin);
+                    }
                 }
-                
-                deleteRecursive(file);
-                plugin.getLogger().info("Cleaned up old world: " + file.getName());
             }
-        }
+        }.runTaskAsynchronously(plugin);
     }
 
     public void generatePregeneratedWorld() {
@@ -61,32 +112,43 @@ public class WorldManager {
     }
 
     private void loadPotentialSpawns() {
+        if (isLoadingSpawns) return;
+
         World world = Bukkit.getWorld(currentWorldName);
         if (world == null) return;
 
+        isLoadingSpawns = true;
         potentialSpawns.clear();
         Random random = new Random();
         int radius = plugin.getConfigManager().getRadius();
-        
-        plugin.getLogger().info("Pre-loading " + PRELOAD_COUNT + " chunks for spawn locations...");
-        
+
+
         for (int i = 0; i < PRELOAD_COUNT; i++) {
-            int x = random.nextInt(radius * 2) - radius;
-            int z = random.nextInt(radius * 2) - radius;
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    int x = random.nextInt(radius * 2) - radius;
+                    int z = random.nextInt(radius * 2) - radius;
 
-            Chunk chunk = world.getChunkAt(x >> 4, z >> 4);
-            chunk.load(true);
-            
-            Location loc = new Location(world, x, 0, z);
+                    world.getChunkAtAsync(x >> 4, z >> 4).thenAccept(chunk -> Bukkit.getScheduler().runTask(plugin, () -> {
+                        for (int dx = -1; dx <= 1; dx++) {
+                            for (int dz = -1; dz <= 1; dz++) {
+                                world.setChunkForceLoaded((x >> 4) + dx, (z >> 4) + dz, true);
+                            }
+                        }
+                        Location loc = new Location(world, x, 0, z);
+                        int y = world.getHighestBlockYAt(x, z);
+                        loc.setY(y + 1);
+                        potentialSpawns.add(loc);
 
-            world.setChunkForceLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4, true);
-
-            int y = world.getHighestBlockYAt(x, z);
-            loc.setY(y + 1);
-            
-            potentialSpawns.add(loc);
+                        if (potentialSpawns.size() == PRELOAD_COUNT) {
+                            plugin.getLogger().info("World is ready to play!");
+                            isLoadingSpawns = false;
+                        }
+                    }));
+                }
+            }.runTaskLater(plugin, i * 2L);
         }
-        plugin.getLogger().info("Finished pre-loading spawn chunks.");
     }
 
     public List<Location> getPotentialSpawns() {
@@ -99,7 +161,11 @@ public class WorldManager {
         if (world == null) return;
 
         for (Location loc : potentialSpawns) {
-            world.setChunkForceLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4, false);
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    world.setChunkForceLoaded((loc.getBlockX() >> 4) + dx, (loc.getBlockZ() >> 4) + dz, false);
+                }
+            }
         }
     }
 
@@ -112,7 +178,7 @@ public class WorldManager {
         if (world != null) {
             world.setAutoSave(false);
             for (org.bukkit.entity.Player p : world.getPlayers()) {
-                p.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
+                p.teleport(Bukkit.getWorlds().getFirst().getSpawnLocation());
             }
             Bukkit.unloadWorld(world, false);
         }
@@ -128,7 +194,7 @@ public class WorldManager {
                         plugin.getLogger().info("World deleted: " + worldName);
                     }
                 } catch (Exception e) {
-                    plugin.getLogger().warning("Failed to delete world " + worldName + " (will be cleaned up on next start): " + e.getMessage());
+                    plugin.getLogger().warning("Failed to delete world " + worldName);
                 }
             }
         }.runTaskAsynchronously(plugin);

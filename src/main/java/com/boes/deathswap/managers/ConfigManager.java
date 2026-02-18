@@ -10,7 +10,6 @@ public class ConfigManager {
 
     private final DeathSwap plugin;
     private FileConfiguration config;
-    private File configFile;
 
     public ConfigManager(DeathSwap plugin) {
         this.plugin = plugin;
@@ -18,7 +17,7 @@ public class ConfigManager {
     }
 
     public void loadConfig() {
-        configFile = new File(plugin.getDataFolder(), "config.yml");
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
 
         if (!configFile.exists()) {
             plugin.saveResource("config.yml", false);
@@ -42,10 +41,7 @@ public class ConfigManager {
     }
 
     public int getRadius() {
-        return config.getInt("game.radius", 5000);
+        return config.getInt("game.radius", 100);
     }
 
-    public FileConfiguration getConfig() {
-        return config;
-    }
 }

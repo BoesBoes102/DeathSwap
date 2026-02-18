@@ -10,13 +10,11 @@ import org.bukkit.entity.Player;
 public record SpectateCommand(DeathSwap plugin) {
 
     public void execute(CommandSender sender) {
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage(ChatColor.RED + "This command can only be executed by a player.");
             return;
         }
 
-        Player player = (Player) sender;
-        
         if (!plugin.getGame().isRunning()) {
             player.sendMessage(ChatColor.RED + "No game is currently running.");
             return;

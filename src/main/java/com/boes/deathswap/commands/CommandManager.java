@@ -41,7 +41,7 @@ public class CommandManager implements CommandExecutor, TabCompleter {
                     sender.sendMessage(ChatColor.RED + "You don't have permission to use this command.");
                     return true;
                 }
-                startCommand.execute(sender);
+                startCommand.execute();
             }
             case "stop" -> {
                 if (!sender.hasPermission("deathswap.admin")) {

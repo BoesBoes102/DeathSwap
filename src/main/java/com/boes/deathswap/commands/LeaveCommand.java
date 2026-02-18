@@ -9,12 +9,10 @@ import org.bukkit.entity.Player;
 public record LeaveCommand(DeathSwap plugin) {
 
     public void execute(CommandSender sender) {
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage(ChatColor.RED + "This command can only be executed by a player.");
             return;
         }
-
-        Player player = (Player) sender;
 
         if (!plugin.getGame().isRunning()) {
             player.sendMessage(ChatColor.RED + "No game is currently running.");
@@ -31,15 +29,15 @@ public record LeaveCommand(DeathSwap plugin) {
             return;
         }
 
-        com.boes.deathswap.gamelogic.Game.PlayerSnapshot snapshot = plugin.getGame().getSnapshots().get(player);
-        com.boes.deathswap.gamelogic.Game.PlayerSnapshot spectatorSnapshot = plugin.getGame().getSpectatorSnapshots().get(player);
+        com.boes.deathswap.gamelogic.Game.PlayerSnapshot snapshot = plugin.getGame().getSnapshots().get(player.getUniqueId());
+        com.boes.deathswap.gamelogic.Game.PlayerSnapshot spectatorSnapshot = plugin.getGame().getSpectatorSnapshots().get(player.getUniqueId());
         
         if (snapshot != null) {
-            snapshot.restore();
-            plugin.getGame().getSnapshots().remove(player);
+            snapshot.restore(player);
+            plugin.getGame().getSnapshots().remove(player.getUniqueId());
         } else if (spectatorSnapshot != null) {
-            spectatorSnapshot.restore();
-            plugin.getGame().getSpectatorSnapshots().remove(player);
+            spectatorSnapshot.restore(player);
+            plugin.getGame().getSpectatorSnapshots().remove(player.getUniqueId());
         } else {
             player.setGameMode(GameMode.SURVIVAL);
             player.teleport(player.getWorld().getSpawnLocation());

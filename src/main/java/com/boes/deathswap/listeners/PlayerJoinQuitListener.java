@@ -20,9 +20,14 @@ public record PlayerJoinQuitListener(Game game) implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
-        if (!game.handlePlayerRejoin(player)) {
+        if (game.isRunning() && !game.getParticipatingPlayers().contains(player.getUniqueId())) {
             if (player.getWorld().equals(game.getGameWorld())) {
+                player.setGameMode(org.bukkit.GameMode.SPECTATOR);
             }
+        }
+
+        if (!game.handlePlayerRejoin(player)) {
+            player.getWorld();
         }
     }
 }

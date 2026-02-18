@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.boes.deathswap"
-version = "1.3"
+version = "1.4"
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(21))

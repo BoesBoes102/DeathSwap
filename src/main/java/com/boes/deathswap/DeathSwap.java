@@ -5,9 +5,11 @@ import com.boes.deathswap.managers.ConfigManager;
 import com.boes.deathswap.gamelogic.Game;
 import com.boes.deathswap.gamelogic.Start;
 import com.boes.deathswap.gamelogic.Stop;
+import com.boes.deathswap.listeners.GameInteractionListener;
 import com.boes.deathswap.listeners.PVPListener;
 import com.boes.deathswap.listeners.PlayerDeathListener;
 import com.boes.deathswap.listeners.PlayerJoinQuitListener;
+import com.boes.deathswap.listeners.PlayerMoveListener;
 import com.boes.deathswap.listeners.PlayerRespawnListener;
 import com.boes.deathswap.managers.WorldManager;
 import org.bukkit.Bukkit;
@@ -39,6 +41,8 @@ public class DeathSwap extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new PlayerRespawnListener(game), this);
         Bukkit.getPluginManager().registerEvents(new PVPListener(game), this);
         Bukkit.getPluginManager().registerEvents(new PlayerJoinQuitListener(game), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerMoveListener(game), this);
+        Bukkit.getPluginManager().registerEvents(new GameInteractionListener(game), this);
 
         Objects.requireNonNull(getCommand("deathswap")).setExecutor(new CommandManager(this));
         Objects.requireNonNull(getCommand("deathswap")).setTabCompleter(new CommandManager(this));

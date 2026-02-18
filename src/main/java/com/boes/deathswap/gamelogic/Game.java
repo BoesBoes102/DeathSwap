@@ -7,43 +7,34 @@ import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 public class Game {
 
     public final DeathSwap plugin;
     private boolean running = false;
+    private boolean starting = false;
     private boolean stopping = false;
     private World gameWorld;
-    private final Map<Player, PlayerSnapshot> snapshots = new HashMap<>();
-    private final Map<Player, PlayerSnapshot> spectatorSnapshots = new HashMap<>();
-    private final Set<Player> spectators = new HashSet<>();
+    private final Map<UUID, PlayerSnapshot> snapshots = new HashMap<>();
+    private final Map<UUID, PlayerSnapshot> spectatorSnapshots = new HashMap<>();
+    private final Set<UUID> spectators = new HashSet<>();
+    private final Set<UUID> participatingPlayers = new HashSet<>();
+    
+    private final Map<UUID, LeftPlayerData> leftPlayers = new HashMap<>();
+    private static final int REJOIN_TIMEOUT_SECONDS = 180; // 3 minutes
 
     private int totalTimeSeconds = 600;
     private int cooldownSeconds = 60;
     private BukkitRunnable timerTask;
     private BossBar bossBar;
-    
-    private final Map<Player, LeftPlayerData> leftPlayers = new HashMap<>();
-    private static final int REJOIN_TIMEOUT_SECONDS = 180; // 3 minutes
 
     public Game(DeathSwap plugin) {
         this.plugin = plugin;
-    }
-
-    public void setTotalTimeSeconds(int totalTimeSeconds) {
-        this.totalTimeSeconds = totalTimeSeconds;
-    }
-
-    public int getTotalTimeSeconds() {
-        return totalTimeSeconds;
-    }
-
-    public void setCooldownSeconds(int cooldownSeconds) {
-        this.cooldownSeconds = cooldownSeconds;
     }
 
     public int getCooldownSeconds() {
@@ -58,6 +49,14 @@ public class Game {
         this.running = running;
     }
 
+    public boolean isStarting() {
+        return starting;
+    }
+
+    public void setStarting(boolean starting) {
+        this.starting = starting;
+    }
+
     public World getGameWorld() {
         return gameWorld;
     }
@@ -66,12 +65,16 @@ public class Game {
         this.gameWorld = gameWorld;
     }
 
-    public Map<Player, PlayerSnapshot> getSnapshots() {
+    public Map<UUID, PlayerSnapshot> getSnapshots() {
         return snapshots;
     }
 
-    public Map<Player, PlayerSnapshot> getSpectatorSnapshots() {
+    public Map<UUID, PlayerSnapshot> getSpectatorSnapshots() {
         return spectatorSnapshots;
+    }
+
+    public Set<UUID> getParticipatingPlayers() {
+        return participatingPlayers;
     }
 
     public void loadSettings() {
@@ -105,7 +108,7 @@ public class Game {
 
                 bossBar.removeAll();
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.getWorld().equals(gameWorld) || spectators.contains(p)) {
+                    if (participatingPlayers.contains(p.getUniqueId()) || spectators.contains(p.getUniqueId())) {
                         bossBar.addPlayer(p);
                     }
                 }
@@ -128,7 +131,7 @@ public class Game {
 
                 if (swapCooldown <= 10 && swapCooldown > 0) {
                     for (Player p : Bukkit.getOnlinePlayers()) {
-                        if (p.getWorld().equals(gameWorld) || spectators.contains(p)) {
+                        if (participatingPlayers.contains(p.getUniqueId()) || spectators.contains(p.getUniqueId())) {
                             p.sendTitle(ChatColor.RED + String.valueOf(swapCooldown), ChatColor.YELLOW + "Swapping in...", 0, 21, 0);
                         }
                     }
@@ -150,6 +153,7 @@ public class Game {
     public void stopGame() {
         running = false;
         stopping = false;
+        participatingPlayers.clear();
         restoreLeftPlayers();
         if (timerTask != null) {
             timerTask.cancel();
@@ -181,7 +185,7 @@ public class Game {
     }
 
     public void onPlayerDeath(Player player) {
-        if (!running) return;
+        if (!running || !participatingPlayers.contains(player.getUniqueId())) return;
 
         if (player.getGameMode() != GameMode.SPECTATOR) {
             player.setGameMode(GameMode.SPECTATOR);
@@ -205,13 +209,13 @@ public class Game {
         
         String message;
         if (alive.size() == 1) {
-            message = ChatColor.GREEN + "DeathSwap winner: " + alive.get(0).getName();
+            message = ChatColor.GREEN + "DeathSwap winner: " + alive.getFirst().getName();
         } else {
             message = ChatColor.YELLOW + "DeathSwap ended with no winner.";
         }
 
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p.getWorld().equals(gameWorld) || spectators.contains(p)) {
+            if (p.getWorld().equals(gameWorld) || spectators.contains(p.getUniqueId())) {
                 p.sendMessage(message);
             }
         }
@@ -229,7 +233,7 @@ public class Game {
         List<Player> alive = new ArrayList<>();
         if (gameWorld == null) return alive;
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p.getWorld().equals(gameWorld) && p.getGameMode() == GameMode.SURVIVAL && !p.isDead()) {
+            if (participatingPlayers.contains(p.getUniqueId()) && p.getWorld().equals(gameWorld) && p.getGameMode() == GameMode.SURVIVAL && !p.isDead()) {
                 alive.add(p);
             }
         }
@@ -237,43 +241,36 @@ public class Game {
     }
 
     public void addSpectator(Player player, PlayerSnapshot snapshot) {
-        spectators.add(player);
+        spectators.add(player.getUniqueId());
         if (snapshot != null) {
-            spectatorSnapshots.put(player, snapshot);
+            spectatorSnapshots.put(player.getUniqueId(), snapshot);
         }
     }
 
     public void removeSpectator(Player player) {
-        spectators.remove(player);
-        spectatorSnapshots.remove(player);
+        spectators.remove(player.getUniqueId());
+        spectatorSnapshots.remove(player.getUniqueId());
     }
 
     public boolean isSpectating(Player player) {
-        return spectators.contains(player);
-    }
-
-    public List<Player> getPlayersInGameWorld() {
-        if (gameWorld == null) return new ArrayList<>();
-        return Bukkit.getOnlinePlayers().stream()
-                .filter(p -> p.getWorld().equals(gameWorld))
-                .collect(Collectors.toList());
+        return spectators.contains(player.getUniqueId());
     }
 
     public void onPlayerLeave(Player player) {
         if (!running) return;
         
         PlayerSnapshot snapshot = new PlayerSnapshot(player);
-        leftPlayers.put(player, new LeftPlayerData(snapshot, REJOIN_TIMEOUT_SECONDS));
+        leftPlayers.put(player.getUniqueId(), new LeftPlayerData(snapshot, REJOIN_TIMEOUT_SECONDS));
     }
 
     public boolean handlePlayerRejoin(Player player) {
-        LeftPlayerData data = leftPlayers.get(player);
+        LeftPlayerData data = leftPlayers.get(player.getUniqueId());
         if (data == null) return true;
         
-        leftPlayers.remove(player);
+        leftPlayers.remove(player.getUniqueId());
         
         if (!running) {
-            data.snapshot.restore();
+            data.snapshot.restore(player);
             return false;
         }
 
@@ -282,27 +279,29 @@ public class Game {
 
     public void restoreLeftPlayers() {
         for (LeftPlayerData data : leftPlayers.values()) {
-            if (data.snapshot.player.isOnline()) {
-                data.snapshot.restore();
+            Player p = Bukkit.getPlayer(data.snapshot.uuid);
+            if (p != null && p.isOnline()) {
+                data.snapshot.restore(p);
             }
         }
         leftPlayers.clear();
     }
 
     private void tickLeftPlayerTimeouts() {
-        List<Player> timedOut = new ArrayList<>();
+        List<UUID> timedOut = new ArrayList<>();
         
-        for (Map.Entry<Player, LeftPlayerData> entry : leftPlayers.entrySet()) {
+        for (Map.Entry<UUID, LeftPlayerData> entry : leftPlayers.entrySet()) {
             entry.getValue().secondsRemaining--;
             if (entry.getValue().secondsRemaining <= 0) {
                 timedOut.add(entry.getKey());
             }
         }
 
-        for (Player player : timedOut) {
-            LeftPlayerData data = leftPlayers.remove(player);
-            if (player.isOnline()) {
-                data.snapshot.restore();
+        for (UUID uuid : timedOut) {
+            LeftPlayerData data = leftPlayers.remove(uuid);
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                data.snapshot.restore(player);
             }
         }
     }
@@ -317,7 +316,7 @@ public class Game {
     }
 
     public static class PlayerSnapshot {
-        public final Player player;
+        public final UUID uuid;
         public final Location location;
         public final ItemStack[] contents;
         public final ItemStack[] armor;
@@ -325,9 +324,10 @@ public class Game {
         public final double health;
         public final int food;
         public final float saturation;
+        public final Collection<PotionEffect> effects;
 
         public PlayerSnapshot(Player p) {
-            player = p;
+            uuid = p.getUniqueId();
             location = p.getLocation();
             contents = p.getInventory().getContents();
             armor = p.getInventory().getArmorContents();
@@ -335,9 +335,10 @@ public class Game {
             health = p.getHealth();
             food = p.getFoodLevel();
             saturation = p.getSaturation();
+            effects = p.getActivePotionEffects();
         }
 
-        public void restore() {
+        public void restore(Player player) {
             player.getInventory().setContents(contents);
             player.getInventory().setArmorContents(armor);
 
@@ -350,6 +351,11 @@ public class Game {
             player.setHealth(health);
             player.setFoodLevel(food);
             player.setSaturation(saturation);
+            
+            for (PotionEffect effect : player.getActivePotionEffects()) {
+                player.removePotionEffect(effect.getType());
+            }
+            player.addPotionEffects(effects);
         }
     }
 

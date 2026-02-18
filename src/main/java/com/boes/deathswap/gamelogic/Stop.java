@@ -20,30 +20,29 @@ public record Stop(DeathSwap plugin, Game game) {
                 p.spigot().respawn();
             }
 
-            Game.PlayerSnapshot snapshot = game.getSnapshots().get(p);
+            Game.PlayerSnapshot snapshot = game.getSnapshots().get(p.getUniqueId());
             if (snapshot == null) {
-                snapshot = game.getSpectatorSnapshots().get(p);
+                snapshot = game.getSpectatorSnapshots().get(p.getUniqueId());
             }
 
             if (snapshot != null) {
-                snapshot.restore();
+                snapshot.restore(p);
             }
 
             if (p.getWorld().equals(gameWorld)) {
-                p.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
+                p.teleport(Bukkit.getWorlds().getFirst().getSpawnLocation());
                 if (p.getGameMode() == GameMode.SPECTATOR) {
                     p.setGameMode(GameMode.SURVIVAL);
                 }
             }
         }
 
-        String worldName = gameWorld.getName();
+        String worldToDelete = gameWorld.getName();
 
         game.getSnapshots().clear();
         game.getSpectatorSnapshots().clear();
 
-        String worldToDelete = worldName;
-        plugin.getWorldManager().deleteWorld(worldToDelete);
+        plugin.getWorldManager().deleteWorldAndRegenerate(worldToDelete);
 
         game.setGameWorld(null);
         return true;
