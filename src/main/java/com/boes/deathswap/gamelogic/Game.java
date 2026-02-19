@@ -26,7 +26,7 @@ public class Game {
     private final Set<UUID> participatingPlayers = new HashSet<>();
     
     private final Map<UUID, LeftPlayerData> leftPlayers = new HashMap<>();
-    private static final int REJOIN_TIMEOUT_SECONDS = 180; // 3 minutes
+    private static final int REJOIN_TIMEOUT_SECONDS = 60;
 
     private int totalTimeSeconds = 600;
     private int cooldownSeconds = 60;
