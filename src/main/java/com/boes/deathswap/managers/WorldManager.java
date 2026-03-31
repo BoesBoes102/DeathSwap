@@ -142,7 +142,7 @@ public class WorldManager {
                         potentialSpawns.add(loc);
 
                         if (potentialSpawns.size() == PRELOAD_COUNT) {
-                            plugin.getLogger().info("World is ready to play!");
+                            plugin.getLogger().info("World is ready!");
                             isLoadingSpawns = false;
                         }
                     }));
@@ -205,9 +205,58 @@ public class WorldManager {
         new BukkitRunnable() {
             @Override
             public void run() {
-                generatePregeneratedWorld();
+                startSlowWorldGeneration();
             }
-        }.runTaskLater(plugin, 40L);
+        }.runTaskLater(plugin, 400L);
+    }
+
+    private void startSlowWorldGeneration() {
+        currentWorldName = WORLD_PREFIX + System.currentTimeMillis();
+        plugin.getLogger().info("Starting slow async world generation: " + currentWorldName);
+        
+        World world = Bukkit.createWorld(new WorldCreator(currentWorldName));
+        if (world == null) return;
+
+        loadPotentialSpawnsSlowly(world);
+    }
+
+    private void loadPotentialSpawnsSlowly(World world) {
+        if (isLoadingSpawns) return;
+
+        isLoadingSpawns = true;
+        potentialSpawns.clear();
+        Random random = new Random();
+        int radius = plugin.getConfigManager().getRadius();
+
+        for (int i = 0; i < PRELOAD_COUNT; i++) {
+            int finalI = i;
+            new BukkitRunnable() {
+                int spawnIndex = finalI;
+
+                @Override
+                public void run() {
+                    int x = random.nextInt(radius * 2) - radius;
+                    int z = random.nextInt(radius * 2) - radius;
+
+                    world.getChunkAtAsync(x >> 4, z >> 4).thenAccept(chunk -> Bukkit.getScheduler().runTask(plugin, () -> {
+                        for (int dx = -1; dx <= 1; dx++) {
+                            for (int dz = -1; dz <= 1; dz++) {
+                                world.setChunkForceLoaded((x >> 4) + dx, (z >> 4) + dz, true);
+                            }
+                        }
+                        Location loc = new Location(world, x, 0, z);
+                        int y = world.getHighestBlockYAt(x, z);
+                        loc.setY(y + 1);
+                        potentialSpawns.add(loc);
+
+                        if (potentialSpawns.size() == PRELOAD_COUNT) {
+                            plugin.getLogger().info("World is ready to play!");
+                            isLoadingSpawns = false;
+                        }
+                    }));
+                }
+            }.runTaskLater(plugin, i * 16L);
+        }
     }
 
     private void deleteRecursive(File file) {

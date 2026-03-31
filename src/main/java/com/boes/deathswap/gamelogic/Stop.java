@@ -9,7 +9,8 @@ import org.bukkit.entity.Player;
 public record Stop(DeathSwap plugin, Game game) {
 
     public boolean stop() {
-        if (!game.isRunning()) return false;
+        if (!game.isRunning() && !game.isStarting()) return false;
+        
         game.stopGame();
 
         World gameWorld = game.getGameWorld();

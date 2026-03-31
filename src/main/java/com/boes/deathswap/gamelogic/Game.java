@@ -32,6 +32,7 @@ public class Game {
     private int cooldownSeconds = 60;
     private BukkitRunnable timerTask;
     private BossBar bossBar;
+    private Start gameStarter;
 
     public Game(DeathSwap plugin) {
         this.plugin = plugin;
@@ -80,6 +81,10 @@ public class Game {
     public void loadSettings() {
         this.totalTimeSeconds = plugin.getConfigManager().getTotalTimeSeconds();
         this.cooldownSeconds = plugin.getConfigManager().getCooldownSeconds();
+    }
+
+    public void setGameStarter(Start starter) {
+        this.gameStarter = starter;
     }
 
     public void startLoop() {
@@ -152,12 +157,16 @@ public class Game {
 
     public void stopGame() {
         running = false;
+        starting = false;
         stopping = false;
         participatingPlayers.clear();
         restoreLeftPlayers();
         if (timerTask != null) {
             timerTask.cancel();
             timerTask = null;
+        }
+        if (gameStarter != null) {
+            gameStarter.cancelCountdown();
         }
         if (bossBar != null) {
             bossBar.removeAll();
