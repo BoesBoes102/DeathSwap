@@ -87,6 +87,8 @@ public class Start {
             spawnLocations.put(p, spawnLoc);
         }
 
+        plugin.getLogger().info("DeathSwap game has been started successfully.");
+
         for (Location loc : spawnLocations.values()) {
             int chunkX = loc.getBlockX() >> 4;
             int chunkZ = loc.getBlockZ() >> 4;

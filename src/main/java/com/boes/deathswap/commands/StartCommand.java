@@ -10,7 +10,6 @@ public record StartCommand(DeathSwap plugin) {
         Start starter = new Start(plugin, plugin.getGame());
         plugin.getGame().setGameStarter(starter);
         starter.start();
-        plugin.getLogger().info("DeathSwap game has been started successfully.");
 
     }
 }
